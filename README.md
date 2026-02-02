@@ -91,6 +91,22 @@ After deployment, access via the ALB DNS name printed in the output:
 http://devops-portfolio-alb-xxxxxxxxx.us-east-1.elb.amazonaws.com
 ```
 
+## 🐳 Deploy with Docker (Local)
+
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# Access at http://localhost:8080
+```
+
+## 🚂 Deploy to Railway (Cloud)
+
+1. Push to GitHub
+2. Go to [railway.app](https://railway.app/) → New Project → Deploy from GitHub
+3. Select your repo → Deploy automatically!
+4. Get your free `.railway.app` URL
+
 ## 🧪 Testing Auto-Scaling
 
 ### Using Python Script
