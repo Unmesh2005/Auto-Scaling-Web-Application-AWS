@@ -13,8 +13,12 @@ COPY app/index_standalone.php /var/www/html/index.php
 # Set working directory
 WORKDIR /var/www/html
 
-# Expose port 80
-EXPOSE 80
+# Configure Apache to listen on Railway's PORT (defaults to 80 for local Docker)
+RUN sed -i 's/Listen 80/Listen ${PORT:-80}/' /etc/apache2/ports.conf && \
+    sed -i 's/:80/:${PORT:-80}/' /etc/apache2/sites-available/000-default.conf
 
-# Start Apache
-CMD ["apache2-foreground"]
+# Expose port (Railway ignores this, uses PORT env var)
+EXPOSE ${PORT:-80}
+
+# Start Apache with environment variable substitution
+CMD ["sh", "-c", "envsubst < /etc/apache2/ports.conf > /tmp/ports.conf && mv /tmp/ports.conf /etc/apache2/ports.conf && envsubst < /etc/apache2/sites-available/000-default.conf > /tmp/000-default.conf && mv /tmp/000-default.conf /etc/apache2/sites-available/000-default.conf && apache2-foreground"]
