@@ -90,6 +90,7 @@ if ($demo_mode) {
     $db_status = "Demo Mode";
     $visit_count = rand(100, 9999); // Simulated visits
     $db_host = "demo-database";
+    $db_error = ""; // Clear error in demo mode - this is expected behavior
 }
 
 $current_time = date('Y-m-d H:i:s T');
