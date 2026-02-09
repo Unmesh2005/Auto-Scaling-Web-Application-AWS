@@ -1,3 +1,9 @@
+databases:
+  - name: devops-db
+    plan: free
+    databaseName: devopsdb
+    user: devops
+
 services:
   - type: web
     name: auto-scaling-web-app
@@ -5,3 +11,8 @@ services:
     dockerfilePath: ./Dockerfile
     plan: free
     healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: devops-db
+          property: connectionString

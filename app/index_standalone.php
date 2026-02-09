@@ -1,17 +1,33 @@
 <?php
 // =========================================================
 // DevOps Portfolio - Auto-Scaling Web Application
-// STANDALONE VERSION - Works without AWS infrastructure
+// STANDALONE VERSION - Works with PostgreSQL (Render) or MySQL
 // =========================================================
 
-// Database Configuration (change these for your environment)
-$db_host = getenv('DB_HOST') ?: 'localhost';
-$db_name = getenv('DB_NAME') ?: 'devopsdb';
-$db_user = getenv('DB_USER') ?: 'root';
-$db_pass = getenv('DB_PASS') ?: '';
+// Database Configuration - supports Render's DATABASE_URL format
+$database_url = getenv('DATABASE_URL');
 
-// Demo mode - set to true to run without database
-$demo_mode = !extension_loaded('pdo_mysql');
+if ($database_url) {
+    // Parse Render's PostgreSQL URL: postgres://user:pass@host:port/dbname
+    $db_parts = parse_url($database_url);
+    $db_host = $db_parts['host'] ?? 'localhost';
+    $db_port = $db_parts['port'] ?? 5432;
+    $db_name = ltrim($db_parts['path'] ?? '/devopsdb', '/');
+    $db_user = $db_parts['user'] ?? 'postgres';
+    $db_pass = $db_parts['pass'] ?? '';
+    $db_type = 'pgsql'; // PostgreSQL
+} else {
+    // Fallback to MySQL for local Docker
+    $db_host = getenv('DB_HOST') ?: 'localhost';
+    $db_port = 3306;
+    $db_name = getenv('DB_NAME') ?: 'devopsdb';
+    $db_user = getenv('DB_USER') ?: 'root';
+    $db_pass = getenv('DB_PASS') ?: '';
+    $db_type = 'mysql';
+}
+
+// Demo mode - only if no database extensions available
+$demo_mode = !extension_loaded('pdo_pgsql') && !extension_loaded('pdo_mysql');
 
 // Mock Instance Metadata (simulates AWS EC2 for demo)
 function getInstanceMetadata($path) {
@@ -35,7 +51,7 @@ $visit_count = 0;
 $db_error = "";
 
 if (!$demo_mode) {
-    // Retry logic for Docker container startup (waits for DB)
+    // Retry logic for container startup (waits for DB)
     $max_retries = 5;
     $retry_delay = 2; // seconds
     $attempt = 0;
@@ -43,7 +59,14 @@ if (!$demo_mode) {
 
     while ($attempt < $max_retries && !$connected) {
         try {
-            $pdo = new PDO("mysql:host=$db_host;dbname=$db_name", $db_user, $db_pass, [
+            // Build DSN based on database type
+            if ($db_type === 'pgsql') {
+                $dsn = "pgsql:host=$db_host;port=$db_port;dbname=$db_name";
+            } else {
+                $dsn = "mysql:host=$db_host;port=$db_port;dbname=$db_name";
+            }
+            
+            $pdo = new PDO($dsn, $db_user, $db_pass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_TIMEOUT => 5
             ]);
@@ -55,7 +78,6 @@ if (!$demo_mode) {
                 sleep($retry_delay);
             } else {
                 $db_error = $e->getMessage();
-                // Only fall back to demo mode if explicitly failed after retries
                 $demo_mode = true; 
             }
         }
@@ -63,13 +85,22 @@ if (!$demo_mode) {
     
     if ($connected) {
         try {
-            // Create visits table if not exists
-            $pdo->exec("CREATE TABLE IF NOT EXISTS visits (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                instance_id VARCHAR(50),
-                visit_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                ip_address VARCHAR(50)
-            )");
+            // Create visits table - PostgreSQL compatible syntax
+            if ($db_type === 'pgsql') {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS visits (
+                    id SERIAL PRIMARY KEY,
+                    instance_id VARCHAR(50),
+                    visit_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ip_address VARCHAR(50)
+                )");
+            } else {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS visits (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    instance_id VARCHAR(50),
+                    visit_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ip_address VARCHAR(50)
+                )");
+            }
             
             // Record this visit
             $visitor_ip = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';

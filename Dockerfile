@@ -1,11 +1,13 @@
 # Use official PHP image with Apache
 FROM php:8.2-apache
 
-# Install required packages and MySQL PDO extension
-RUN apt-get update && apt-get install -y gettext-base && \
-    docker-php-ext-install pdo pdo_mysql && \
-    a2enmod rewrite && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install required packages and database extensions (PostgreSQL + MySQL)
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    gettext-base \
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql \
+    && a2enmod rewrite \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy application files
 COPY app/index_standalone.php /var/www/html/index.php
